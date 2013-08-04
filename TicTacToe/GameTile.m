@@ -35,7 +35,7 @@
         UIColor *light = [UIColor colorWithRed:1.0 green:1.0 blue:1.0 alpha:1.0];
         UIColor *dark = [UIColor colorWithRed:0.7 green:0.7 blue:0.7 alpha:1.0];
         CAGradientLayer *gradient = [CAGradientLayer layer];
-        gradient.frame = CGRectInset(self.layer.frame, 0, 0);
+        gradient.frame = self.layer.frame;
         gradient.colors = @[(id)light.CGColor, (id)dark.CGColor];
         [self.layer insertSublayer:gradient atIndex:0];
         

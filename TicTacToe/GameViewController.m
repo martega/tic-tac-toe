@@ -71,6 +71,7 @@
         }
     }
 
+    // invoke the callback after the last tile has slid into place
     double delayInSeconds = delay + animationDuration;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
     dispatch_after(popTime, dispatch_get_main_queue(), onCompletion);
@@ -104,10 +105,13 @@
         }
     }
     
+    // invoke the callback after the last tile is offscreen
     double delayInSeconds = delay + animationDuration;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
     dispatch_after(popTime, dispatch_get_main_queue(), onCompletion);
 }
+
+//--------------------------------------------------------------------------
 
 - (void)startNewGame
 {
@@ -116,6 +120,49 @@
             [self.game startNewGame];
         }];
     }];
+}
+
+//--------------------------------------------------------------------------
+
+- (void)highlightWinningMoves:(NSArray *)winningMoves onCompletion:(void (^)(void))onCompletion
+{
+    // I need still need to figure out how to do this.
+    [onCompletion invoke];
+}
+
+//--------------------------------------------------------------------------
+
+- (void)displayGameOverMessageForPlayer:(TicTacToePlayer)winningPlayer
+{
+    NSString *message;
+    
+    switch (winningPlayer) {
+        case PlayerX:
+            message = @"Player X wins!";
+            break;
+            
+        case PlayerO:
+            message = @"Player O wins!";
+            break;
+            
+        case NoPlayer:
+            message = @"Tie game!";
+            
+        default:
+            break;
+    }
+    
+    UIAlertView *gameOverMessage = [[UIAlertView alloc] initWithTitle:message
+                                                              message:nil
+                                                             delegate:self
+                                                    cancelButtonTitle:@"Ok"
+                                                    otherButtonTitles:nil];
+    
+    double delayInSeconds = 0.5;
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
+    dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+        [gameOverMessage show];
+    });
 }
 
 //--------------------------------------------------------------------------
@@ -143,7 +190,7 @@
 #pragma mark - Game Delegate Methods
 
 - (void)game:(Game *)game player:(TicTacToePlayer)player didMoveToPosition:(NSIndexPath *)position
-{
+{    
     // get the tile
     int row = position.row;
     int col = position.section;
@@ -171,6 +218,8 @@
     
     [UIView commitAnimations];
 }
+
+//--------------------------------------------------------------------------
 
 - (void)game:(Game *)game player:(TicTacToePlayer)player didMakeIllegalMoveAtPosition:(NSIndexPath *)position
 {
@@ -201,33 +250,14 @@
     
 }
 
-- (void)game:(Game *)game didFinishWithWinningPlayer:(TicTacToePlayer)player
+//--------------------------------------------------------------------------
+
+- (void)game:(Game *)game didFinishWithWinningPlayer:(TicTacToePlayer)winningPlayer andWinningMoves:(NSMutableArray *)winningMoves
 {
-    NSString *message;
-    
-    switch (player) {
-        case PlayerX:
-            message = @"Player X wins!";
-            break;
-        
-        case PlayerO:
-            message = @"Player O wins!";
-            break;
-            
-        case NoPlayer:
-            message = @"Tie game!";
-            
-        default:
-            break;
-    }
-    
-    UIAlertView *gameOverMessage = [[UIAlertView alloc] initWithTitle:message
-                                                              message:nil
-                                                             delegate:self
-                                                    cancelButtonTitle:@"Ok"
-                                                    otherButtonTitles:nil];
-    
-    [gameOverMessage show];
+    __block TicTacToePlayer player = winningPlayer;
+    [self highlightWinningMoves:winningMoves onCompletion:^{
+        [self displayGameOverMessageForPlayer:player];
+    }];
 }
 
 //--------------------------------------------------------------------------

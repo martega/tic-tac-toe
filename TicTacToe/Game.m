@@ -20,7 +20,7 @@
 @property (nonatomic, readwrite) BOOL isOver;
 @property (nonatomic, readwrite) int numMoves;
 
-- (BOOL)checkForWin;
+- (NSArray *)findWinningMoves;
 
 @end
 
@@ -54,17 +54,11 @@
 
 - (void)startNewGame
 {
-    gameBoard[0][0] = NoPlayer;
-    gameBoard[0][1] = NoPlayer;
-    gameBoard[0][2] = NoPlayer;
-    
-    gameBoard[1][0] = NoPlayer;
-    gameBoard[1][1] = NoPlayer;
-    gameBoard[1][2] = NoPlayer;
-    
-    gameBoard[2][0] = NoPlayer;
-    gameBoard[2][1] = NoPlayer;
-    gameBoard[2][2] = NoPlayer;
+    for (int row = 0; row < 3; row++) {
+        for (int col = 0; col < 3; col++) {
+            gameBoard[row][col] = NoPlayer;
+        }
+    }
     
     self.numMoves = 0;
     self.isOver = NO;
@@ -74,7 +68,6 @@
 
 - (void)makeMoveAtPosition:(NSIndexPath *)position
 {
-    
     int row = position.row;
     int col = position.section;
     
@@ -94,14 +87,15 @@
     }
     
     // handle the end game
-    BOOL currentPlayerWon = [self checkForWin];
+    NSArray *winningMoves = [self findWinningMoves];
+    BOOL currentPlayerWon = winningMoves.count != 0;
     if (currentPlayerWon) {
         self.isOver = YES;
-        [self.delegate game:self didFinishWithWinningPlayer:self.playerTurn];
+        [self.delegate game:self didFinishWithWinningPlayer:self.playerTurn andWinningMoves:winningMoves];
     }
     else if (self.numMoves == 9) {
         self.isOver = YES;
-        [self.delegate game:self didFinishWithWinningPlayer:NoPlayer];
+        [self.delegate game:self didFinishWithWinningPlayer:NoPlayer andWinningMoves:winningMoves];
     }
     
     // get ready for the next turn
@@ -110,7 +104,7 @@
 
 //--------------------------------------------------------------------------
 
-- (BOOL)checkForWin
+- (NSArray *)findWinningMoves
 {    
     // check for a win in all rows and columns
     for (int i = 0; i < 3; i++) {
@@ -126,9 +120,18 @@
             }
         }
         
-        if (winningRow || winningCol) {
-            return YES;
+        if (winningRow) {
+            return @[[NSIndexPath indexPathForRow:i inSection:0],
+                     [NSIndexPath indexPathForRow:i inSection:1],
+                     [NSIndexPath indexPathForRow:i inSection:2]];
         }
+        
+        if (winningCol) {
+            return @[[NSIndexPath indexPathForRow:0 inSection:i],
+                     [NSIndexPath indexPathForRow:1 inSection:i],
+                     [NSIndexPath indexPathForRow:2 inSection:i]];
+        }
+ 
     }
     
     // check for a diagonal win
@@ -136,18 +139,22 @@
         gameBoard[1][1] == self.playerTurn &&
         gameBoard[2][2] == self.playerTurn)
     {
-        return YES;
+        return @[[NSIndexPath indexPathForRow:0 inSection:0],
+                 [NSIndexPath indexPathForRow:1 inSection:1],
+                 [NSIndexPath indexPathForRow:2 inSection:2]];
     }
 
-    // check for a diagonal win
     if (gameBoard[0][2] == self.playerTurn &&
         gameBoard[1][1] == self.playerTurn &&
         gameBoard[2][0] == self.playerTurn)
     {
-        return YES;
+        return @[[NSIndexPath indexPathForRow:0 inSection:2],
+                 [NSIndexPath indexPathForRow:1 inSection:1],
+                 [NSIndexPath indexPathForRow:2 inSection:0]];
     }
 
-    return NO;
+    // nobody won :(
+    return @[ ];
 }
 
 @end

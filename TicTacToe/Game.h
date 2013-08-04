@@ -30,7 +30,7 @@ typedef enum {
 
 - (void)game:(Game *)game player:(TicTacToePlayer)player didMoveToPosition:(NSIndexPath *)position;
 - (void)game:(Game *)game player:(TicTacToePlayer)player didMakeIllegalMoveAtPosition:(NSIndexPath *)position;
-- (void)game:(Game *)game didFinishWithWinningPlayer:(TicTacToePlayer)player;
+- (void)game:(Game *)game didFinishWithWinningPlayer:(TicTacToePlayer)player andWinningMoves:(NSArray *)winningMoves;
 
 @end
 
