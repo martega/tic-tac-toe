@@ -37,7 +37,7 @@
         CAGradientLayer *gradient = [CAGradientLayer layer];
         gradient.frame = self.layer.frame;
         gradient.colors = @[(id)light.CGColor, (id)dark.CGColor];
-        [self.layer insertSublayer:gradient atIndex:0];
+        [self.layer addSublayer:gradient];
         
         // rounded corners
         self.layer.cornerRadius = 15;

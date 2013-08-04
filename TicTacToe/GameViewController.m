@@ -19,6 +19,7 @@
 }
 
 @property (nonatomic, strong) Game *game;
+@property (nonatomic) CGFloat gameTileSize;
 
 @end
 
@@ -30,43 +31,40 @@
 
 //--------------------------------------------------------------------------
 
-#pragma mark - Game
+#pragma mark - View Lifecycle
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    
+    [self setupGameBoard:^{
+        self.game = [[Game alloc] init];
+        self.game.delegate = self;
+    }];
+}
+
+//--------------------------------------------------------------------------
+
+#pragma mark - Displaying the Gameboard
 
 - (void)setupGameBoard:(void (^)(void))onCompletion
 {
     float delay = 0;
     float delayDelta = 0.06;
     float animationDuration = 0.3;
-    
-    CGFloat tileSize = (self.view.frame.size.width - 4*kGameTilePadding)/3;
         
     for (int row = 0; row < 3; row++) {
         for (int col = 2; col >= 0; col--) {
-            // tile's final position
-            CGFloat x = self.view.center.x + (col - 1)*(tileSize + kGameTilePadding);
-            CGFloat y = self.view.center.y + (row - 1)*(tileSize + kGameTilePadding);
+            GameTile *tile = [self createGameTileForRow:row column:col];
             
-            // create the tile
-            CGRect tileFrame = CGRectMake(0, 0, tileSize, tileSize);
-            GameTile *tile = [[GameTile alloc] initWithFrame:tileFrame];
-            gameTiles[row][col] = tile;
-            tile.location = [NSIndexPath indexPathForRow:row inSection:col];
-            [tile addTarget:self action:@selector(tappedGameTile:) forControlEvents:UIControlEventTouchUpInside];
+            CGFloat x = self.view.center.x + (col - 1)*(self.gameTileSize + kGameTilePadding);
+            CGFloat y = self.view.center.y + (row - 1)*(self.gameTileSize + kGameTilePadding);
             
-            // animate it's movement from offscreen to it's final position
-            tile.center = CGPointMake(x - 2*self.view.center.x, y);
-
+            CGPoint start = CGPointMake(x - 2*self.view.center.x, y);
+            CGPoint end = CGPointMake(x, y);
             
-            [UIView animateWithDuration:animationDuration
-                                  delay:delay
-                                options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseOut
-                             animations:^{
-                                 tile.center = CGPointMake(x, y);
-                             }
-                             completion:nil];
-            
-            [self.view addSubview:tile];
-            
+            [self slideGameTileOnScreen:tile start:start end:end duration:animationDuration delay:delay];
+                        
             delay += delayDelta;
         }
     }
@@ -87,20 +85,8 @@
         
     for (int row = 0; row < 3; row++) {
         for (int col = 2; col >= 0; col--) {
-            // get the tile
-            GameTile *tile = gameTiles[row][col];
-            
-            // animate it's movement offscreen            
-            [UIView animateWithDuration:animationDuration
-                                  delay:delay
-                                options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseIn
-                             animations:^{
-                                 tile.center = CGPointMake(tile.center.x + 2*self.view.center.x, tile.center.y);
-                             }
-                             completion:^(BOOL finished) {
-                                 [tile removeFromSuperview];
-                             }];
-                        
+            GameTile *tile = [self getGameTileAtRow:row column:col];
+            [self slideGameTileOffScreen:tile duration:animationDuration delay:delay];                        
             delay += delayDelta;
         }
     }
@@ -191,63 +177,16 @@
 
 - (void)game:(Game *)game player:(TicTacToePlayer)player didMoveToPosition:(NSIndexPath *)position
 {    
-    // get the tile
-    int row = position.row;
-    int col = position.section;
-    GameTile *tile = gameTiles[row][col];
-    
-    // flip the tile
-    [UIView beginAnimations:@"tile flip" context:nil];
-    [UIView setAnimationTransition:UIViewAnimationTransitionFlipFromLeft forView:tile cache:YES];
-    [UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
-    [UIView setAnimationDuration:0.5];
-    
-    // change the tile symbol
-    switch (player) {
-        case PlayerX:
-            [tile setTileImage:[UIImage imageNamed:@"cross"]];
-            break;
-            
-        case PlayerO:
-            [tile setTileImage:[UIImage imageNamed:@"circle"]];
-            break;
-            
-        default:
-            break;
-    }
-    
-    [UIView commitAnimations];
+    GameTile *tile = [self getGameTileAtPosition:position];
+    [self flipGameTile:tile toRevealSymbolForPlayer:player];
 }
 
 //--------------------------------------------------------------------------
 
 - (void)game:(Game *)game player:(TicTacToePlayer)player didMakeIllegalMoveAtPosition:(NSIndexPath *)position
 {
-    // get the tile
-    int row = position.row;
-    int col = position.section;
-    GameTile *tile = gameTiles[row][col];
-    
-    // shake the tile
-    CGFloat translationAmount = 2.0;
-    CGAffineTransform translateLeft = CGAffineTransformTranslate(CGAffineTransformIdentity, -translationAmount, -translationAmount);
-    CGAffineTransform translateRight = CGAffineTransformTranslate(CGAffineTransformIdentity, translationAmount, translationAmount);
-
-    tile.transform = translateLeft;
-    
-    [UIView animateWithDuration:0.06
-                          delay:0
-                        options:UIViewAnimationOptionBeginFromCurrentState |
-                                UIViewAnimationOptionAutoreverse           |
-                                UIViewAnimationOptionRepeat
-                     animations:^{
-                         [UIView setAnimationRepeatCount:10];
-                         tile.transform = translateRight;
-                     }
-                     completion:^(BOOL finished) {
-                         tile.transform = CGAffineTransformIdentity;
-                     }];
-    
+    GameTile *tile = [self getGameTileAtPosition:position];    
+    [self shakeTile:tile];
 }
 
 //--------------------------------------------------------------------------
@@ -278,16 +217,124 @@
 
 //--------------------------------------------------------------------------
 
-#pragma mark - View Lifecycle
+#pragma mark - Utility Methods
 
-- (void)viewDidLoad
+- (GameTile *)getGameTileAtPosition:(NSIndexPath *)position
 {
-    [super viewDidLoad];
+    int row = position.row;
+    int col = position.section;
+    return gameTiles[row][col];
+}
+
+//--------------------------------------------------------------------------
+
+- (GameTile *)getGameTileAtRow:(NSUInteger)row column:(NSUInteger)col
+{
+    return gameTiles[row][col];
+}
+
+//--------------------------------------------------------------------------
+
+- (void)shakeTile:(GameTile *)tile
+{
+    CGFloat shiftAmount = 2.0;
+    CGAffineTransform translateLeft = CGAffineTransformTranslate(CGAffineTransformIdentity, -shiftAmount, -shiftAmount);
+    CGAffineTransform translateRight = CGAffineTransformTranslate(CGAffineTransformIdentity, shiftAmount, shiftAmount);
     
-    [self setupGameBoard:^{
-        self.game = [[Game alloc] init];
-        self.game.delegate = self;
-    }];
+    tile.transform = translateLeft;
+    
+    [UIView animateWithDuration:0.06
+                          delay:0
+                        options:UIViewAnimationOptionBeginFromCurrentState |
+     UIViewAnimationOptionAutoreverse           |
+     UIViewAnimationOptionRepeat
+                     animations:^{
+                         [UIView setAnimationRepeatCount:10];
+                         tile.transform = translateRight;
+                     }
+                     completion:^(BOOL finished) {
+                         tile.transform = CGAffineTransformIdentity;
+                     }];
+}
+
+//--------------------------------------------------------------------------
+
+- (GameTile *)createGameTileForRow:(NSUInteger)row column:(NSUInteger)col
+{
+    CGRect tileFrame = CGRectMake(0, 0, self.gameTileSize, self.gameTileSize);
+    GameTile *tile = [[GameTile alloc] initWithFrame:tileFrame];
+    gameTiles[row][col] = tile;
+    tile.location = [NSIndexPath indexPathForRow:row inSection:col];
+    [self.view addSubview:tile];
+    [tile addTarget:self action:@selector(tappedGameTile:) forControlEvents:UIControlEventTouchUpInside];
+    
+    return tile;
+}
+
+//--------------------------------------------------------------------------
+
+- (void)slideGameTileOnScreen:(GameTile *)tile
+                        start:(CGPoint)start
+                          end:(CGPoint)end
+                     duration:(NSTimeInterval)duration
+                        delay:(NSTimeInterval)delay
+{
+    tile.center = start;
+
+    [UIView animateWithDuration:duration
+                          delay:delay
+                        options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+                         tile.center = end;
+                     }
+                     completion:nil];
+}
+
+//--------------------------------------------------------------------------
+
+- (void)slideGameTileOffScreen:(GameTile *)tile duration:(NSTimeInterval)duration delay:(NSTimeInterval)delay
+{
+    [UIView animateWithDuration:duration
+                          delay:delay
+                        options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseIn
+                     animations:^{
+                         tile.center = CGPointMake(tile.center.x + 2*self.view.center.x, tile.center.y);
+                     }
+                     completion:^(BOOL finished) {
+                         [tile removeFromSuperview];
+                     }];
+}
+
+//--------------------------------------------------------------------------
+
+- (void)flipGameTile:(GameTile *)tile toRevealSymbolForPlayer:(TicTacToePlayer)player
+{
+    [UIView beginAnimations:@"tile flip" context:nil];
+    [UIView setAnimationTransition:UIViewAnimationTransitionFlipFromLeft forView:tile cache:YES];
+    [UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
+    [UIView setAnimationDuration:0.5];
+    
+    switch (player) {
+        case PlayerX:
+            [tile setTileImage:[UIImage imageNamed:@"cross"]];
+            break;
+            
+        case PlayerO:
+            [tile setTileImage:[UIImage imageNamed:@"circle"]];
+            break;
+            
+        default:
+            break;
+    }
+    
+    [UIView commitAnimations];
+}
+
+//--------------------------------------------------------------------------
+
+- (CGFloat)gameTileSize
+{
+    return (self.view.frame.size.width - 4*kGameTilePadding)/3;
 }
 
 @end

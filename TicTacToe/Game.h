@@ -41,8 +41,6 @@ typedef enum {
 @interface Game : NSObject
 
 @property (nonatomic, weak) id<GameProtocol> delegate;
-@property (nonatomic, readonly) TicTacToePlayer playerTurn;
-@property (nonatomic, readonly) BOOL isOver;
 
 - (void)startNewGame;
 - (void)makeMoveAtPosition:(NSIndexPath *)position;
